@@ -27,7 +27,7 @@ import os       # Para chequear permisos si se requiere
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN — ajusta HOST/PORT según tu red
 # ─────────────────────────────────────────────
-HOST = '0.0.0.0'   # Escuchar en todas las interfaces
+HOST = '192.168.1.11'   # Escuchar en todas las interfaces
 
 # Leer puerto desde argumento de línea de comandos, o usar 6001 por defecto
 if '--puerto' in sys.argv:
@@ -51,17 +51,21 @@ def hora_local_ajustada():
     """Retorna el tiempo Unix ajustado con el offset acumulado."""
     return time.time() + offset_acumulado
 
+import subprocess
+import datetime
+
 def cambiar_hora_sistema(offset):
-    """Intenta cambiar la hora real del Sistema Operativo."""
-    nuevo_tiempo = time.time() + offset
+    """Intenta cambiar la hora real del Sistema Operativo usando date -s."""
+    nuevo_tiempo_unix = time.time() + offset
+    nuevo_tiempo_dt = datetime.datetime.fromtimestamp(nuevo_tiempo_unix)
+    tiempo_formateado = nuevo_tiempo_dt.strftime('%Y-%m-%d %H:%M:%S')
+    
     try:
-        # Requiere privilegios de administrador/root
-        time.clock_settime(time.CLOCK_REALTIME, nuevo_tiempo)
-        print("  [SISTEMA] Hora del Sistema Operativo actualizada con éxito.")
-    except AttributeError:
-        print("  [SISTEMA] Advertencia: 'clock_settime' no está disponible en este SO.")
-    except PermissionError:
-        print("  [SISTEMA] Advertencia: Permiso denegado. Usa 'sudo' para cambiar la hora del SO.")
+        print(f"  [SISTEMA] Aplicando nueva hora al SO: {tiempo_formateado} ...")
+        subprocess.run(['sudo', 'date', '-s', tiempo_formateado], check=True)
+        print("  [SISTEMA] ¡El reloj físico se ha sincronizado correctamente!")
+    except Exception as e:
+        print(f"  [SISTEMA] Error al cambiar la hora: {e}")
 
 def main():
     global offset_acumulado

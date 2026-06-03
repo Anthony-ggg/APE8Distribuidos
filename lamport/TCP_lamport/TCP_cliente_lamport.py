@@ -20,7 +20,7 @@ import time
 from datetime import datetime
  
 # ─── Configuración ─────────────────────────────────────────────────────────────
-HOST = '0.0.0.0'       # Escucha en todas las interfaces
+HOST = '192.168.1.11'       # Escucha en todas las interfaces
 PORT = 5001            # Puerto TCP para Lamport
 PC_ID = "PC1"          # Identificador de este nodo
 # ────────────────────────────────────────────────────────────────────────────────

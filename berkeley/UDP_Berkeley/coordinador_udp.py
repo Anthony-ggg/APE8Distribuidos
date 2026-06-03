@@ -38,19 +38,23 @@ NODOS = [
     ('192.168.1.13', 6003),
 ]
 
-TIMEOUT = 3.0   # Segundos de espera para las respuestas
+TIMEOUT = 0.5   # Reducido para no demorar cuando hay nodos apagados
+
+import subprocess
+import datetime
 
 def cambiar_hora_sistema(offset):
-    """Intenta cambiar la hora real del Sistema Operativo."""
-    nuevo_tiempo = time.time() + offset
+    """Intenta cambiar la hora real del Sistema Operativo usando date -s."""
+    nuevo_tiempo_unix = time.time() + offset
+    nuevo_tiempo_dt = datetime.datetime.fromtimestamp(nuevo_tiempo_unix)
+    tiempo_formateado = nuevo_tiempo_dt.strftime('%Y-%m-%d %H:%M:%S')
+    
     try:
-        # Requiere privilegios de administrador/root
-        time.clock_settime(time.CLOCK_REALTIME, nuevo_tiempo)
-        print("  [SISTEMA] Hora del Sistema Operativo actualizada con éxito.")
-    except AttributeError:
-        print("  [SISTEMA] Advertencia: 'clock_settime' no está disponible en este SO.")
-    except PermissionError:
-        print("  [SISTEMA] Advertencia: Permiso denegado. Usa 'sudo' para cambiar la hora del SO.")
+        print(f"  [SISTEMA] Aplicando nueva hora al SO: {tiempo_formateado} ...")
+        subprocess.run(['sudo', 'date', '-s', tiempo_formateado], check=True)
+        print("  [SISTEMA] ¡El reloj físico se ha sincronizado correctamente!")
+    except Exception as e:
+        print(f"  [SISTEMA] Error al cambiar la hora: {e}")
 
 def ejecutar_ronda_berkeley_udp():
     print("\n" + "─" * 60)
@@ -148,14 +152,14 @@ def main():
     for ip, p in NODOS:
         print(f"    • {ip}:{p}")
     print("=" * 60)
-    print("\n[INFO] Ejecutando rondas de sincronización cada 10 segundos.")
+    print("\n[INFO] Ejecutando rondas de sincronización cada 3 segundos.")
     print("[INFO] Presiona Ctrl+C para detener.\n")
 
     try:
         while True:
             ejecutar_ronda_berkeley_udp()
-            print("\n[ESPERA] Próxima ronda en 10 segundos...")
-            time.sleep(10)
+            print("\n[ESPERA] Próxima ronda en 3 segundos...")
+            time.sleep(3)
 
     except KeyboardInterrupt:
         print("\n\n[INFO] Coordinador detenido.")
