@@ -18,9 +18,10 @@ import threading
 import time
 import json
 
-HOST = '127.0.0.1'  # IP del servidor (ajustar si es necesario)
-PORT = 8000
-MI_ID = "C"  # ID de este proceso (Cliente)
+HOST = '192.168.1.10'  # IP del servidor (ajustar si es necesario)
+PORT = 8007
+
+MI_ID = "192.168.1.11"  # ID de este proceso (Cliente)
 
 reloj_vector = {"S": 0, "C": 0}
 lock_reloj = threading.Lock()

@@ -30,7 +30,7 @@ import time
 import json
 
 HOST = '0.0.0.0'
-PORT = 8000
+PORT = 8007
 MI_ID = "S"  # ID de este proceso (Servidor)
 
 # Vector de tiempo inicial.
@@ -92,8 +92,8 @@ def manejar_cliente(conn, addr):
                 if not linea:
                     continue
 
-                # Parsear: MSG:{"C": 1, "S": 0}:Hola
-                partes = linea.split(':', 2)
+                # Parsear: MSG|{"C": 1, "S": 0}|Hola
+                partes = linea.split('|', 2)
                 if len(partes) == 3 and partes[0] == "MSG":
                     vector_str = partes[1]
                     contenido = partes[2]
@@ -123,7 +123,7 @@ def manejar_cliente(conn, addr):
                     vector_antes_env = dict(reloj_vector)
                     vector_ack = tick_envio()
                     
-                    respuesta = f"ACK:{json.dumps(vector_ack)}\n"
+                    respuesta = f"ACK|{json.dumps(vector_ack)}\n"
                     conn.sendall(respuesta.encode('utf-8'))
 
                     log_evento(

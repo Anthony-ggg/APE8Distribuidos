@@ -84,7 +84,7 @@ def manejar_coordinador(conn, addr):
 
         if datos == "GET_TIME":
             # ── Enviar tiempo actual al coordinador ────────────────
-            t_actual = hora_local_ajustada()
+            t_actual = time.time()
             respuesta = f"{t_actual:.6f}\n"
             conn.sendall(respuesta.encode('utf-8'))
 
@@ -95,18 +95,14 @@ def manejar_coordinador(conn, addr):
             datos_offset = conn.recv(1024).decode('utf-8').strip()
             offset_nuevo = float(datos_offset)
 
-            # Acumular el offset recibido
-            t_antes = hora_local_ajustada()
-            offset_acumulado += offset_nuevo
-            t_despues = hora_local_ajustada()
+            t_antes = time.time()
+            # Intentar cambiar la hora del sistema operativo
+            cambiar_hora_sistema(offset_nuevo)
+            t_despues = time.time()
 
             print(f"[OFFSET]    Recibido: {offset_nuevo*1000:+.3f} ms")
             print(f"[AJUSTE]    Antes:  {time.strftime('%H:%M:%S', time.localtime(t_antes))}")
             print(f"[AJUSTE]    Después:{time.strftime('%H:%M:%S', time.localtime(t_despues))}")
-            print(f"[OFFSET TOTAL ACUMULADO]: {offset_acumulado*1000:+.3f} ms")
-            
-            # Intentar cambiar la hora del sistema operativo
-            cambiar_hora_sistema(offset_nuevo)
         else:
             print(f"[IGNORADO]  Mensaje desconocido: '{datos}'")
 
