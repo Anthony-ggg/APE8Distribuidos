@@ -29,7 +29,7 @@ import threading
 import time
 import json
 
-HOST = '0.0.0.0'
+HOST = '192.168.1.10'
 PORT = 8007
 MI_ID = "S"  # ID de este proceso (Servidor)
 

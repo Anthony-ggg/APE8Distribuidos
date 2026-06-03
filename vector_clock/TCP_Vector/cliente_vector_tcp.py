@@ -29,6 +29,8 @@ lock_reloj = threading.Lock()
 def tick_local():
     global reloj_vector
     with lock_reloj:
+        if MI_ID not in reloj_vector:
+            reloj_vector[MI_ID] = 0
         reloj_vector[MI_ID] += 1
         return dict(reloj_vector)
 
