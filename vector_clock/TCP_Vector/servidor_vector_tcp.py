@@ -30,10 +30,10 @@ import time
 import json
 
 HOST = '192.168.1.10'
-PORT = 8007
+PORT = 8008
 MI_ID = "S"  # ID de este proceso (Servidor)
 
-# Vector de tiempo inicial.
+# Vector de tiempo inicial.enviar
 # En un sistema real se descubre dinámicamente, aquí lo definimos.
 reloj_vector = {"S": 0, "C": 0}
 lock_reloj = threading.Lock()

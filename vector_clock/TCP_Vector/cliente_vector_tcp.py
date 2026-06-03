@@ -21,7 +21,7 @@ import json
 HOST = '192.168.1.10'  # IP del servidor (ajustar si es necesario)
 PORT = 8007
 
-MI_ID = "C"  # ID de este proceso (Cliente)
+MI_ID = "192.168.1.11"  # ID de este proceso (Cliente)
 
 reloj_vector = {"S": 0, "C": 0}
 lock_reloj = threading.Lock()
@@ -30,11 +30,17 @@ def tick_local():
     global reloj_vector
     with lock_reloj:
 <<<<<<< HEAD
+<<<<<<< HEAD
         if MI_ID not in reloj_vector:
             reloj_vector[MI_ID] = 0
         reloj_vector[MI_ID] += 1
 =======
         reloj_vector[MI_ID] += 1  
+>>>>>>> origin/main
+=======
+        if MI_ID not in reloj_vector:
+            reloj_vector[MI_ID] = 0
+        reloj_vector[MI_ID] += 1
 >>>>>>> origin/main
         return dict(reloj_vector)
 
@@ -78,14 +84,9 @@ def recibir_mensajes(sock):
                 linea = linea.strip()
                 if not linea: continue
 
-                if linea.startswith("ACK|"):
-                    vector_str = linea.split('|', 1)[1]
-                elif linea.startswith("ACK:"):
-                    vector_str = linea.split(':', 1)[1]
-                else:
-                    continue
-
-                if vector_str:
+                partes = linea.split(':', 1)
+                if len(partes) == 2 and partes[0] == "ACK":
+                    vector_str = partes[1]
                     try:
                         vector_remoto = json.loads(vector_str)
                     except json.JSONDecodeError:
@@ -144,7 +145,7 @@ def main():
             elif comando == 'enviar':
                 v_antes = dict(reloj_vector)
                 v_envio = tick_envio()
-                mensaje = f"MSG|{json.dumps(v_envio)}|Hola_desde_cliente\n"
+                mensaje = f"MSG:{json.dumps(v_envio)}:Hola_desde_cliente\n"
                 
                 sock.sendall(mensaje.encode('utf-8'))
                 
