@@ -28,8 +28,8 @@ import random   # Para intervalos aleatorios
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN
 # ─────────────────────────────────────────────
-SERVER_HOST  = '127.0.0.1'   # IP del servidor (cambia en LAN)
-SERVER_PORT  = 8000
+SERVER_HOST  = '192.168.1.10'   # IP del servidor (cambia en LAN)
+SERVER_PORT  = 7000
 NUM_PROCESOS = 5
 
 # Leer el ID de este proceso desde argumento de línea de comandos

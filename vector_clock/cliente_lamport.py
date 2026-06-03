@@ -26,8 +26,8 @@ import random   # Para intervalos aleatorios entre mensajes
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN
 # ─────────────────────────────────────────────
-SERVER_HOST   = '127.0.0.1'   # IP del servidor (cambia en LAN)
-SERVER_PORT   = 7000
+SERVER_HOST   = '192.168.1.10'   # IP del servidor (cambia en LAN)
+SERVER_PORT   = 7001
 NOMBRE_PROCESO = "PROCESO_B (Cliente)"
 NUM_MENSAJES  = 8             # Cuántos mensajes enviar
 

@@ -29,7 +29,7 @@ import struct   # Para desempaquetar el tiempo recibido
 #  CONFIGURACIÓN — cambia SERVER_HOST a la IP
 #  del servidor en tu red LAN
 # ─────────────────────────────────────────────
-SERVER_HOST = '127.0.0.1'   # IP del servidor (localhost para pruebas locales)
+SERVER_HOST = '192.168.1.10'   # IP del servidor (localhost para pruebas locales)
 SERVER_PORT = 5000           # Puerto UDP del servidor
 TIMEOUT     = 5              # Segundos de espera máxima por respuesta
 NUM_SINCRONIZACIONES = 5     # Cuántas veces sincronizar (para ver estadísticas)

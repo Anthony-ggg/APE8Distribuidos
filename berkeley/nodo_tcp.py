@@ -22,11 +22,12 @@ WIRESHARK: Filtrar con:  tcp.port == 6001
 import socket   # Sockets TCP
 import time     # Timestamps reales
 import sys      # Para leer argumentos de línea de comandos
+import os       # Para chequear permisos si se requiere
 
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN — ajusta HOST/PORT según tu red
 # ─────────────────────────────────────────────
-HOST = '0.0.0.0'   # Escuchar en todas las interfaces
+HOST = '192.168.1.11'   # Escuchar en todas las interfaces
 
 # Leer puerto desde argumento de línea de comandos, o usar 6001 por defecto
 if '--puerto' in sys.argv:
@@ -40,11 +41,28 @@ else:
 # ─────────────────────────────────────────────
 # En un sistema real ajustarías el reloj del SO, pero para
 # efectos académicos mantenemos un offset acumulado.
-offset_acumulado = 0.0   # segundos
+# Leer un desfase (en segundos) para simular que el reloj está mal
+if '--desfase' in sys.argv:
+    idx = sys.argv.index('--desfase')
+    offset_acumulado = float(sys.argv[idx + 1])
+else:
+    offset_acumulado = 0.0   # segundos
 
 def hora_local_ajustada():
     """Retorna el tiempo Unix ajustado con el offset acumulado."""
     return time.time() + offset_acumulado
+
+def cambiar_hora_sistema(offset):
+    """Intenta cambiar la hora real del Sistema Operativo."""
+    nuevo_tiempo = time.time() + offset
+    try:
+        # Requiere privilegios de administrador/root
+        time.clock_settime(time.CLOCK_REALTIME, nuevo_tiempo)
+        print("  [SISTEMA] Hora del Sistema Operativo actualizada con éxito.")
+    except AttributeError:
+        print("  [SISTEMA] Advertencia: 'clock_settime' no está disponible en este SO.")
+    except PermissionError:
+        print("  [SISTEMA] Advertencia: Permiso denegado. Usa 'sudo' para cambiar la hora del SO.")
 
 def manejar_coordinador(conn, addr):
     """
@@ -86,6 +104,9 @@ def manejar_coordinador(conn, addr):
             print(f"[AJUSTE]    Antes:  {time.strftime('%H:%M:%S', time.localtime(t_antes))}")
             print(f"[AJUSTE]    Después:{time.strftime('%H:%M:%S', time.localtime(t_despues))}")
             print(f"[OFFSET TOTAL ACUMULADO]: {offset_acumulado*1000:+.3f} ms")
+            
+            # Intentar cambiar la hora del sistema operativo
+            cambiar_hora_sistema(offset_nuevo)
         else:
             print(f"[IGNORADO]  Mensaje desconocido: '{datos}'")
 

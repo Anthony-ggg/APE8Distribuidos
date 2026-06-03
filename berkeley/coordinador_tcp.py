@@ -24,6 +24,7 @@ WIRESHARK: Filtrar con:  tcp.port == 6000
 import socket       # Sockets TCP
 import time         # Timestamps reales
 import threading    # Para conectarse a varios nodos en paralelo
+import os           # Para chequear permisos si se requiere
 
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN — ajusta según tu red LAN
@@ -34,13 +35,25 @@ PORT_COORDINADOR = 6000         # Puerto del coordinador
 # Lista de nodos esclavos: (IP, Puerto)
 # Agrega aquí tantos nodos como tengas en tu red
 NODOS = [
-    ('127.0.0.1', 6001),   # Nodo 1 (localhost para pruebas)
-    ('127.0.0.1', 6002),   # Nodo 2
-    ('127.0.0.1', 6003),   # Nodo 3
+    ('192.168.1.11', 6001),   # Nodo 1 (localhost para pruebas)
+    ('192.168.1.12', 6002),   # Nodo 2
+    ('192.168.1.13', 6003),   # Nodo 3
     # ('192.168.1.11', 6001),  # Ejemplo de nodo real en LAN
 ]
 
 TIMEOUT = 3   # Segundos de espera por respuesta de cada nodo
+
+def cambiar_hora_sistema(offset):
+    """Intenta cambiar la hora real del Sistema Operativo."""
+    nuevo_tiempo = time.time() + offset
+    try:
+        # Requiere privilegios de administrador/root
+        time.clock_settime(time.CLOCK_REALTIME, nuevo_tiempo)
+        print("  [SISTEMA] Hora del Sistema Operativo actualizada con éxito.")
+    except AttributeError:
+        print("  [SISTEMA] Advertencia: 'clock_settime' no está disponible en este SO.")
+    except PermissionError:
+        print("  [SISTEMA] Advertencia: Permiso denegado. Usa 'sudo' para cambiar la hora del SO.")
 
 def obtener_tiempo_nodo(ip, puerto, resultados, indice):
     """
@@ -140,6 +153,8 @@ def ejecutar_ronda_berkeley():
 
     offset_coordinador = t_promedio - t_coordinador
     print(f"  Coordinador debe ajustar: {offset_coordinador*1000:+.3f} ms")
+    if offset_coordinador != 0:
+        cambiar_hora_sistema(offset_coordinador)
 
     for ip, puerto, t_nodo, sock in nodos_activos:
         offset = t_promedio - t_nodo   # positivo → adelantar; negativo → atrasar

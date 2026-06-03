@@ -37,7 +37,7 @@ import json         # Para serializar el vector de tiempo
 #  CONFIGURACIÓN
 # ─────────────────────────────────────────────
 HOST        = '0.0.0.0'
-PORT        = 8000
+PORT        = 7000
 NUM_PROCESOS = 5       # Tamaño del vector
 MI_ID       = 0       # Este servidor es el proceso 0
 

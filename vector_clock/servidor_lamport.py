@@ -31,7 +31,7 @@ import sys          # Para flush de stdout
 #  CONFIGURACIÓN
 # ─────────────────────────────────────────────
 HOST = '0.0.0.0'
-PORT = 7000
+PORT = 7001
 NOMBRE_PROCESO = "PROCESO_A (Servidor)"
 
 # ─────────────────────────────────────────────
