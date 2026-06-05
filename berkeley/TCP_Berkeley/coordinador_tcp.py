@@ -36,8 +36,8 @@ PORT_COORDINADOR = 6000         # Puerto del coordinador
 # Apunta a tu máquina (192.168.1.11)
 NODOS = [
     ('192.168.1.11', 6001),   # Nodo 1
-    ('192.168.1.11', 6002),   # Nodo 2
-    ('192.168.1.11', 6003),   # Nodo 3
+    ('192.168.1.12', 6002),   # Nodo 2
+    #('192.168.1.13', 6003),   # Nodo 3
 ]
 
 TIMEOUT = 0.5   # Reducido para no demorar cuando hay nodos apagados
