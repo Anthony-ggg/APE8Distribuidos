@@ -17,11 +17,20 @@ import threading
 import time
 import json
 
+import sys
+
 HOST = '192.168.1.10'  # IP del servidor
 PORT = 8007
 MI_ID = "C"  # ID de este proceso (Cliente)
 
-reloj_vector = {"S": 0, "C": 0}
+if '--ip' in sys.argv:
+    HOST = sys.argv[sys.argv.index('--ip') + 1]
+if '--puerto' in sys.argv:
+    PORT = int(sys.argv[sys.argv.index('--puerto') + 1])
+if '--id' in sys.argv:
+    MI_ID = sys.argv[sys.argv.index('--id') + 1]
+
+reloj_vector = {"S": 0, MI_ID: 0}
 lock_reloj = threading.Lock()
 
 def tick_local():
@@ -62,30 +71,34 @@ def recibir_mensajes(sock):
             data, addr = sock.recvfrom(1024)
             linea = data.decode('utf-8').strip()
             
-            partes = linea.split(':', 1)
-            if len(partes) == 2 and partes[0] == "ACK":
-                vector_str = partes[1]
-                try:
-                    vector_remoto = json.loads(vector_str)
-                except json.JSONDecodeError:
-                    print("Error decodificando vector JSON.")
-                    continue
+            if linea.startswith("ACK|"):
+                vector_str = linea.split('|', 1)[1]
+            elif linea.startswith("ACK:"):
+                vector_str = linea.split(':', 1)[1]
+            else:
+                continue
 
-                vector_antes = dict(reloj_vector)
-                vector_nuevo = tick_recepcion(vector_remoto)
+            try:
+                vector_remoto = json.loads(vector_str)
+            except json.JSONDecodeError:
+                print("Error decodificando vector JSON.")
+                continue
 
-                log_evento(
-                    tipo="RECEPCIÓN",
-                    descripcion=f"ACK recibido de {addr} | Vector Recibido={vector_remoto}",
-                    vector_antes=vector_antes,
-                    vector_despues=vector_nuevo
-                )
+            vector_antes = dict(reloj_vector)
+            vector_nuevo = tick_recepcion(vector_remoto)
+
+            log_evento(
+                tipo="RECEPCIÓN",
+                descripcion=f"ACK recibido de {addr} | Vector Recibido={vector_remoto}",
+                vector_antes=vector_antes,
+                vector_despues=vector_nuevo
+            )
     except Exception as e:
-        # El socket se cierra al salir
-        pass
+        print(f"\n[ERROR] Escucha terminada: {e}")
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('', 0))  # Bind to ephemeral port to avoid OSError in recvfrom
     
     print("=" * 60)
     print("  RELOJES DE VECTORES — CLIENTE UDP (Proceso C)")
@@ -120,7 +133,7 @@ def main():
             elif comando == 'enviar':
                 v_antes = dict(reloj_vector)
                 v_envio = tick_envio()
-                mensaje = f"MSG:{json.dumps(v_envio)}:Hola_desde_cliente"
+                mensaje = f"MSG|{json.dumps(v_envio)}|Hola_desde_cliente"
                 
                 # Enviar directo por UDP sin conectar
                 sock.sendto(mensaje.encode('utf-8'), (HOST, PORT))

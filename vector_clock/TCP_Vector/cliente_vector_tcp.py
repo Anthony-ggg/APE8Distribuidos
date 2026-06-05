@@ -18,12 +18,21 @@ import threading
 import time
 import json
 
+import sys
+
 HOST = '192.168.1.10'  # IP del servidor (ajustar si es necesario)
 PORT = 8008
 
 MI_ID = "C"  # ID de este proceso (Cliente)
 
-reloj_vector = {"S": 0, "C": 0}
+if '--ip' in sys.argv:
+    HOST = sys.argv[sys.argv.index('--ip') + 1]
+if '--puerto' in sys.argv:
+    PORT = int(sys.argv[sys.argv.index('--puerto') + 1])
+if '--id' in sys.argv:
+    MI_ID = sys.argv[sys.argv.index('--id') + 1]
+
+reloj_vector = {"S": 0, MI_ID: 0}
 lock_reloj = threading.Lock()
 
 def tick_local():

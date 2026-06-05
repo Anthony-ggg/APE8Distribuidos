@@ -29,13 +29,20 @@ import threading
 import time
 import json
 
-HOST = '192.168.1.10'
+import sys
+
+HOST = '0.0.0.0'
 PORT = 8008
 MI_ID = "S"  # ID de este proceso (Servidor)
 
-# Vector de tiempo inicial.enviar
+if '--puerto' in sys.argv:
+    PORT = int(sys.argv[sys.argv.index('--puerto') + 1])
+if '--id' in sys.argv:
+    MI_ID = sys.argv[sys.argv.index('--id') + 1]
+
+# Vector de tiempo inicial
 # En un sistema real se descubre dinámicamente, aquí lo definimos.
-reloj_vector = {"S": 0, "C": 0}
+reloj_vector = {MI_ID: 0}
 lock_reloj = threading.Lock()
 
 def tick_local():

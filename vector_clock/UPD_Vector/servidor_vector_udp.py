@@ -17,11 +17,18 @@ import threading
 import time
 import json
 
-HOST = '192.168.1.10'
+import sys
+
+HOST = '0.0.0.0'
 PORT = 8007
 MI_ID = "S"  # ID de este proceso (Servidor)
 
-reloj_vector = {"S": 0, "C": 0}
+if '--puerto' in sys.argv:
+    PORT = int(sys.argv[sys.argv.index('--puerto') + 1])
+if '--id' in sys.argv:
+    MI_ID = sys.argv[sys.argv.index('--id') + 1]
+
+reloj_vector = {MI_ID: 0}
 lock_reloj = threading.Lock()
 
 def tick_local():
@@ -72,7 +79,7 @@ def main():
             data, addr = servidor.recvfrom(1024)
             linea = data.decode('utf-8').strip()
 
-            partes = linea.split(':', 2)
+            partes = linea.split('|', 2)
             if len(partes) == 3 and partes[0] == "MSG":
                 vector_str = partes[1]
                 contenido = partes[2]
@@ -102,7 +109,7 @@ def main():
                 vector_antes_env = dict(reloj_vector)
                 vector_ack = tick_envio()
                 
-                respuesta = f"ACK:{json.dumps(vector_ack)}"
+                respuesta = f"ACK|{json.dumps(vector_ack)}"
                 servidor.sendto(respuesta.encode('utf-8'), addr)
 
                 log_evento(
