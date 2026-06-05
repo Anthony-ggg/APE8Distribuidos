@@ -1,128 +1,188 @@
+import random
 import socket
 import threading
 import time
 
+# ============================================================================== 
+# CONFIGURACION DE RED LAN
 # ==============================================================================
-# CONFIGURACIÓN DE LA RED LAN (Modificar según la PC actual)
-# ==============================================================================
-# Mapeo de IPs de la guía práctica
 NODOS = {
     "PC1": "192.168.1.10",
     "PC2": "192.168.1.11",
     "PC3": "192.168.1.12",
     "PC4": "192.168.1.13",
-    "PC5": "192.168.1.14"
+    "PC5": "192.168.1.14",
 }
 
-PUERTO = 5000  # Puerto común para el chat
+PUERTO = 7000
 
-# Identifica esta máquina (CAMBIAR ESTO en cada PC antes de ejecutar)
-MI_NOMBRE = "PC1"  # Ej: Cambiar a "PC2", "PC3", etc., en las otras laptops
+# Cambia este valor en cada equipo antes de ejecutar.
+MI_NOMBRE = "PC3"
 MI_IP = NODOS[MI_NOMBRE]
 
-# ==============================================================================
-# VARIABLES DEL ALGORITMO DE LAMPORT
-# ==============================================================================
-reloj_logico = 0
-lock = threading.Lock()  # Para evitar condiciones de carrera al modificar el reloj
+MENSAJES = [
+    "Revisando el estado del sistema",
+    "Confirmo recepcion del evento",
+    "Enviando actualizacion de la cola",
+    "Proceso interno completado",
+    "Sincronizando actividad distribuida",
+    "Nuevo mensaje en el chat distribuido",
+    "Registro de evento causal actualizado",
+    "Lamport mantiene el orden de llegada",
+]
 
-# ==============================================================================
-# HILO RECEPTOR (Escucha mensajes de otras PCs)
-# ==============================================================================
-def recibir_mensajes():
+INTERVALO_ENVIO_MIN = 2
+INTERVALO_ENVIO_MAX = 5
+TIEMPO_ESPERA_CONEXION = 3
+
+reloj_logico = 0
+lock = threading.Lock()
+detener = threading.Event()
+
+
+def obtener_nombre_por_ip(ip: str) -> str:
+    for nombre, direccion in NODOS.items():
+        if direccion == ip:
+            return nombre
+    return ip
+
+
+def formatear_evento(reloj: int, tipo_evento: str, detalle: str) -> str:
+    return f"[{reloj:04d}] {tipo_evento}: {detalle}"
+
+
+def recibir_conexion(conexion: socket.socket, direccion_remota):
     global reloj_logico
-    
-    # Crear socket UDP
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((MI_IP, PUERTO))
-    
-    print(f"[*] Servidor Lamport activo en {MI_IP}:{PUERTO}. Esperando mensajes...\n")
-    
-    while True:
-        try:
-            data, addr = sock.recvfrom(1024)
-            mensaje_decodificado = data.decode('utf-8')
-            
-            # El mensaje viene en formato: "RELOJ_RECIBIDO|ORIGEN|TEXTO"
-            partes = mensaje_decodificado.split('|', 2)
-            if len(partes) < 3:
-                continue
-                
+
+    try:
+        with conexion.makefile("r", encoding="utf-8") as flujo:
+            linea = flujo.readline().strip()
+            if not linea:
+                return
+
+            partes = linea.split("|", 1)
+            if len(partes) != 2:
+                return
+
             reloj_recibido = int(partes[0])
-            origen = partes[1]
-            texto = partes[2]
-            
+            texto = partes[1]
+            origen = obtener_nombre_por_ip(direccion_remota[0])
+
             with lock:
-                reloj_anterior = reloj_logico
-                # REGLA DE RECEPCIÓN LAMPORT: max(Mi_Contador, Contador_Recibido) + 1
+                reloj_antes = reloj_logico
                 reloj_logico = max(reloj_logico, reloj_recibido) + 1
-                
-                print(f"\n[MENSAJE RECIBIDO desde {origen}]")
-                print(f" ├─ Contenido: '{texto}'")
-                print(f" ├─ Reloj adjunto en paquete: L = {reloj_recibido}")
-                print(f" ├─ Mi reloj antes: {reloj_anterior}")
-                print(f" └─ Mi reloj ajustado: L = {reloj_logico}")
-                print("Escribe el nombre del destino (ej: PC2) o 'salir': ", end="", flush=True)
-                
-        except Exception as e:
-            print(f"[-] Error al recibir mensaje: {e}")
+                reloj_despues = reloj_logico
+
+            print()
+            print("=" * 70)
+            print(formatear_evento(reloj_despues, "RECEPCION", f"desde {origen}"))
+            print(f"Texto: {texto}")
+            print(f"Reloj recibido: {reloj_recibido}")
+            print(f"Mi reloj antes:  {reloj_antes}")
+            print(f"Mi reloj despues: {reloj_despues}")
+            print("=" * 70)
+            print()
+
+    except Exception as error:
+        print(f"[-] Error al procesar una conexion entrante: {error}")
+    finally:
+        try:
+            conexion.close()
+        except OSError:
+            pass
+
+
+def servidor_tcp():
+    servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    servidor.bind((MI_IP, PUERTO))
+    servidor.listen()
+    servidor.settimeout(1.0)
+
+    print(f"[*] Nodo Lamport activo en {MI_IP}:{PUERTO}")
+    print("[*] Esperando mensajes TCP de otros nodos...\n")
+
+    while not detener.is_set():
+        try:
+            conexion, direccion_remota = servidor.accept()
+        except socket.timeout:
+            continue
+        except OSError:
             break
 
-# ==============================================================================
-# HILO EMISOR (Interfaz de usuario para enviar)
-# ==============================================================================
-def enviar_mensajes():
-    global reloj_logico
-    
-    # Crear socket UDP para envíos
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
-    time.sleep(1) # Esperar a que el hilo receptor imprima el inicio
-    
-    while True:
-        destino = input("Escribe el nombre del destino (ej: PC2) o 'salir': ").strip().upper()
-        
-        if destino == "SALIR":
-            print("[*] Saliendo del chat...")
-            sock.close()
-            import os; os._exit(0)
-            
-        if destino not in NODOS:
-            print(f"[-] Destino '{destino}' no válido. Opciones: PC1, PC2, PC3, PC4, PC5.")
-            continue
-            
-        if destino == MI_NOMBRE:
-            print("[-] No te puedes enviar un mensaje a ti mismo en esta práctica.")
-            continue
-            
-        texto = input(f"Mensaje para {destino}: ")
-        
-        with lock:
-            # REGLA DE ENVÍO LAMPORT: Incrementar contador en 1 antes de enviar
-            reloj_logico += 1
-            
-            # Formatear el payload para que viaje en la red
-            # Formato: "RELOJ|ORIGEN|TEXTO"
-            payload = f"{reloj_logico}|{MI_NOMBRE}|{texto}"
-            
-            ip_destino = NODOS[destino]
-            sock.sendto(payload.encode('utf-8'), (ip_destino, PUERTO))
-            
-            print(f"[+] Mensaje enviado a {destino}. Mi reloj actual: L = {reloj_logico}\n")
+        hilo = threading.Thread(
+            target=recibir_conexion,
+            args=(conexion, direccion_remota),
+            daemon=True,
+        )
+        hilo.start()
 
-# ==============================================================================
-# FLUJO PRINCIPAL
-# ==============================================================================
+    try:
+        servidor.close()
+    except OSError:
+        pass
+
+
+def seleccionar_destino() -> str:
+    destinos = [nombre for nombre in NODOS if nombre != MI_NOMBRE]
+    return random.choice(destinos)
+
+
+def seleccionar_texto() -> str:
+    sufijo = random.randint(1, 999)
+    return f"{random.choice(MENSAJES)} #{sufijo}"
+
+
+def enviar_mensaje(destino: str, texto: str):
+    global reloj_logico
+
+    ip_destino = NODOS[destino]
+
+    with lock:
+        reloj_logico += 1
+        reloj_envio = reloj_logico
+
+    payload = f"{reloj_envio}|{texto}\n"
+
+    try:
+        with socket.create_connection((ip_destino, PUERTO), timeout=TIEMPO_ESPERA_CONEXION) as conexion:
+            conexion.sendall(payload.encode("utf-8"))
+    except OSError as error:
+        print(f"[-] No se pudo enviar a {destino} ({ip_destino}): {error}")
+        return
+
+    print(formatear_evento(reloj_envio, "ENVIO", f"a {destino} -> {texto}"))
+
+
+def bucle_envio_automatico():
+    print("[*] Envio automatico activado.")
+    print("[*] Cada mensaje incrementa el reloj local antes de salir y aplica Lamport al recibir.\n")
+
+    while not detener.is_set():
+        espera = random.uniform(INTERVALO_ENVIO_MIN, INTERVALO_ENVIO_MAX)
+        if detener.wait(espera):
+            break
+
+        destino = seleccionar_destino()
+        texto = seleccionar_texto()
+        enviar_mensaje(destino, texto)
+
+
 if __name__ == "__main__":
-    print("-" * 50)
-    print(f"   CARRERA DE COMPUTACIÓN UNL - RELOJES DE LAMPORT")
-    print("-" * 50)
-    print(f"Nodo Activo: {MI_NOMBRE} | IP Estática: {MI_IP}")
-    print("-" * 50)
-    
-    # Iniciar el hilo que escucha de forma asíncrona
-    hilo_receptor = threading.Thread(target=recibir_mensajes, daemon=True)
-    hilo_receptor.start()
-    
-    # Iniciar la interfaz de envío en el hilo principal
-    enviar_mensajes()
+    print("-" * 72)
+    print("   FASE 4 - RELOJES LOGICOS DE LAMPORT")
+    print("-" * 72)
+    print(f"Nodo activo: {MI_NOMBRE} | IP: {MI_IP} | Puerto TCP: {PUERTO}")
+    print(f"Reloj inicial: L = {reloj_logico}")
+    print("-" * 72)
+
+    hilo_servidor = threading.Thread(target=servidor_tcp, daemon=True)
+    hilo_servidor.start()
+
+    try:
+        bucle_envio_automatico()
+    except KeyboardInterrupt:
+        print("\n[*] Deteniendo nodo Lamport...")
+    finally:
+        detener.set()
+        time.sleep(0.5)
