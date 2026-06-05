@@ -52,6 +52,22 @@ def hora_local_ajustada():
     """Retorna el tiempo Unix ajustado con el offset acumulado."""
     return time.time() + offset_acumulado
 
+import subprocess
+import datetime
+
+def cambiar_hora_sistema(offset):
+    """Intenta cambiar la hora real del Sistema Operativo usando date -s."""
+    nuevo_tiempo_unix = time.time() + offset
+    nuevo_tiempo_dt = datetime.datetime.fromtimestamp(nuevo_tiempo_unix)
+    tiempo_formateado = nuevo_tiempo_dt.strftime('%Y-%m-%d %H:%M:%S')
+    
+    try:
+        print(f"  [SISTEMA] Aplicando nueva hora al SO: {tiempo_formateado} ...")
+        subprocess.run(['date', '-s', tiempo_formateado], check=True)
+        print("  [SISTEMA] ¡El reloj físico se ha sincronizado correctamente!")
+    except Exception as e:
+        print(f"  [SISTEMA] Error al cambiar la hora: {e}")
+
 def manejar_coordinador(conn, addr):
     """
     Maneja una conexión del coordinador:
@@ -84,8 +100,8 @@ def manejar_coordinador(conn, addr):
             offset_nuevo = float(datos_offset)
 
             t_antes = hora_local_ajustada()
-            # Ajustar el reloj logico en lugar de cambiar la hora del sistema
-            offset_acumulado += offset_nuevo
+            # Ajustar la hora física del sistema
+            cambiar_hora_sistema(offset_nuevo)
             t_despues = hora_local_ajustada()
 
             print(f"[OFFSET]    Recibido: {offset_nuevo*1000:+.3f} ms")
