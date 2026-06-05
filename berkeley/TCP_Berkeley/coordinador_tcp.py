@@ -29,35 +29,24 @@ import os           # Para chequear permisos si se requiere
 # ─────────────────────────────────────────────
 #  CONFIGURACIÓN — ajusta según tu red LAN
 # ─────────────────────────────────────────────
-HOST_COORDINADOR = '0.0.0.0'   # Escuchar en todas las interfaces
+HOST_COORDINADOR = '192.168.1.10'   # Escuchar en IP del coordinador
 PORT_COORDINADOR = 6000         # Puerto del coordinador
 
 # Lista de nodos esclavos: (IP, Puerto)
-# Agrega aquí tantos nodos como tengas en tu red
+# Apunta a tu máquina (192.168.1.11)
 NODOS = [
-    ('192.168.1.11', 6001),   # Nodo 1 (localhost para pruebas)
-    ('192.168.1.12', 6002),   # Nodo 2
-    ('192.168.1.13', 6003),   # Nodo 3
-    # ('192.168.1.11', 6001),  # Ejemplo de nodo real en LAN
+    ('192.168.1.11', 6001),   # Nodo 1
+    ('192.168.1.11', 6002),   # Nodo 2
+    ('192.168.1.11', 6003),   # Nodo 3
 ]
 
 TIMEOUT = 0.5   # Reducido para no demorar cuando hay nodos apagados
 
-import subprocess
-import datetime
+offset_acumulado = 0.0
 
-def cambiar_hora_sistema(offset):
-    """Intenta cambiar la hora real del Sistema Operativo usando date -s."""
-    nuevo_tiempo_unix = time.time() + offset
-    nuevo_tiempo_dt = datetime.datetime.fromtimestamp(nuevo_tiempo_unix)
-    tiempo_formateado = nuevo_tiempo_dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    try:
-        print(f"  [SISTEMA] Aplicando nueva hora al SO: {tiempo_formateado} ...")
-        subprocess.run(['sudo', 'date', '-s', tiempo_formateado], check=True)
-        print("  [SISTEMA] ¡El reloj físico se ha sincronizado correctamente!")
-    except Exception as e:
-        print(f"  [SISTEMA] Error al cambiar la hora: {e}")
+def hora_local_ajustada():
+    """Retorna el tiempo Unix ajustado con el offset acumulado."""
+    return time.time() + offset_acumulado
 
 def obtener_tiempo_nodo(ip, puerto, resultados, indice):
     """
@@ -112,7 +101,7 @@ def ejecutar_ronda_berkeley():
     # ── PASO 1: Obtener tiempo de todos los nodos (en paralelo) ──────
     print("\n[PASO 1] Solicitando tiempo a todos los nodos...")
 
-    t_coordinador = time.time()   # Tiempo del coordinador AHORA
+    t_coordinador = hora_local_ajustada()   # Tiempo del coordinador AHORA
     resultados = [None] * len(NODOS)
     hilos = []
 
@@ -155,10 +144,11 @@ def ejecutar_ronda_berkeley():
     # ── PASO 3: Calcular y enviar offsets ────────────────────────────
     print(f"\n[PASO 3] Calculando y enviando offsets a cada nodo...")
 
+    global offset_acumulado
     offset_coordinador = t_promedio - t_coordinador
     print(f"  Coordinador debe ajustar: {offset_coordinador*1000:+.3f} ms")
     if offset_coordinador != 0:
-        cambiar_hora_sistema(offset_coordinador)
+        offset_acumulado += offset_coordinador
 
     for ip, puerto, t_nodo, sock in nodos_activos:
         offset = t_promedio - t_nodo   # positivo → adelantar; negativo → atrasar

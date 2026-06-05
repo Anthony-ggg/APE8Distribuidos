@@ -17,8 +17,8 @@ import threading
 import time
 import json
 
-HOST = '0.0.0.0'
-PORT = 8000
+HOST = '192.168.1.10'
+PORT = 8007
 MI_ID = "S"  # ID de este proceso (Servidor)
 
 reloj_vector = {"S": 0, "C": 0}

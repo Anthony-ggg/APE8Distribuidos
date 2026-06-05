@@ -51,22 +51,6 @@ def hora_local_ajustada():
     """Retorna el tiempo Unix ajustado con el offset acumulado."""
     return time.time() + offset_acumulado
 
-import subprocess
-import datetime
-
-def cambiar_hora_sistema(offset):
-    """Intenta cambiar la hora real del Sistema Operativo usando date -s."""
-    nuevo_tiempo_unix = time.time() + offset
-    nuevo_tiempo_dt = datetime.datetime.fromtimestamp(nuevo_tiempo_unix)
-    tiempo_formateado = nuevo_tiempo_dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    try:
-        print(f"  [SISTEMA] Aplicando nueva hora al SO: {tiempo_formateado} ...")
-        subprocess.run(['sudo', 'date', '-s', tiempo_formateado], check=True)
-        print("  [SISTEMA] ¡El reloj físico se ha sincronizado correctamente!")
-    except Exception as e:
-        print(f"  [SISTEMA] Error al cambiar la hora: {e}")
-
 def main():
     global offset_acumulado
     
@@ -96,7 +80,7 @@ def main():
 
             if msg == "GET_TIME":
                 # ── 2. Enviar tiempo actual al coordinador ────────────────
-                t_actual = time.time()
+                t_actual = hora_local_ajustada()
                 respuesta = f"{t_actual:.6f}"
                 servidor.sendto(respuesta.encode('utf-8'), addr)
 
@@ -114,10 +98,10 @@ def main():
                         msg_offset = data_offset.decode('utf-8').strip()
                         offset_nuevo = float(msg_offset)
 
-                        t_antes = time.time()
-                        # Intentar cambiar la hora del sistema operativo
-                        cambiar_hora_sistema(offset_nuevo)
-                        t_despues = time.time()
+                        t_antes = hora_local_ajustada()
+                        # Ajustar el reloj logico en lugar de cambiar la hora del sistema
+                        offset_acumulado += offset_nuevo
+                        t_despues = hora_local_ajustada()
 
                         print(f"[OFFSET]    Recibido: {offset_nuevo*1000:+.3f} ms")
                         print(f"[AJUSTE]    Antes:  {time.strftime('%H:%M:%S', time.localtime(t_antes))}")

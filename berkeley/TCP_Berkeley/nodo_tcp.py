@@ -52,18 +52,6 @@ def hora_local_ajustada():
     """Retorna el tiempo Unix ajustado con el offset acumulado."""
     return time.time() + offset_acumulado
 
-def cambiar_hora_sistema(offset):
-    """Intenta cambiar la hora real del Sistema Operativo."""
-    nuevo_tiempo = time.time() + offset
-    try:
-        # Requiere privilegios de administrador/root
-        time.clock_settime(time.CLOCK_REALTIME, nuevo_tiempo)
-        print("  [SISTEMA] Hora del Sistema Operativo actualizada con éxito.")
-    except AttributeError:
-        print("  [SISTEMA] Advertencia: 'clock_settime' no está disponible en este SO.")
-    except PermissionError:
-        print("  [SISTEMA] Advertencia: Permiso denegado. Usa 'sudo' para cambiar la hora del SO.")
-
 def manejar_coordinador(conn, addr):
     """
     Maneja una conexión del coordinador:
@@ -84,7 +72,7 @@ def manejar_coordinador(conn, addr):
 
         if datos == "GET_TIME":
             # ── Enviar tiempo actual al coordinador ────────────────
-            t_actual = time.time()
+            t_actual = hora_local_ajustada()
             respuesta = f"{t_actual:.6f}\n"
             conn.sendall(respuesta.encode('utf-8'))
 
@@ -95,10 +83,10 @@ def manejar_coordinador(conn, addr):
             datos_offset = conn.recv(1024).decode('utf-8').strip()
             offset_nuevo = float(datos_offset)
 
-            t_antes = time.time()
-            # Intentar cambiar la hora del sistema operativo
-            cambiar_hora_sistema(offset_nuevo)
-            t_despues = time.time()
+            t_antes = hora_local_ajustada()
+            # Ajustar el reloj logico en lugar de cambiar la hora del sistema
+            offset_acumulado += offset_nuevo
+            t_despues = hora_local_ajustada()
 
             print(f"[OFFSET]    Recibido: {offset_nuevo*1000:+.3f} ms")
             print(f"[AJUSTE]    Antes:  {time.strftime('%H:%M:%S', time.localtime(t_antes))}")
