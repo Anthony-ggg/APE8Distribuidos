@@ -19,7 +19,7 @@ import json
 
 import sys
 
-HOST = '192.168.1.10'  # IP del servidor
+HOST = '192.168.1.11'  # IP del servidor
 PORT = 8007
 MI_ID = "C"  # ID de este proceso (Cliente)
 

@@ -31,8 +31,8 @@ import json
 
 import sys
 
-HOST = '0.0.0.0'
-PORT = 8008
+HOST = '192.168.1.10'
+PORT = 8007
 MI_ID = "S"  # ID de este proceso (Servidor)
 
 if '--puerto' in sys.argv:
