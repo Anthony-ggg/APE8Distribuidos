@@ -4,7 +4,7 @@ import subprocess
 
 # --- CONFIGURACIÓN DEL CLIENTE UDP ---
 IP_COORDINADOR = '192.168.1.10'  # IP estática del Servidor/Coordinador
-PUERTO_COORDINADOR = 12345       # Debe coincidir con el del servidor
+PUERTO_COORDINADOR = 7001       # Debe coincidir con el del servidor
 
 def iniciar_cliente_udp(host_servidor, puerto):
     print("="*60)

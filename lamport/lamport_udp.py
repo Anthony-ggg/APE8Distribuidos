@@ -13,14 +13,14 @@ NODOS = {
     "PC3": "192.168.1.12"
 }
 
-PUERTO = 7001  # Cambiado levemente el puerto para evitar colisiones si corren juntos
+PUERTO = 7010 # Cambiado levemente el puerto para evitar colisiones si corren juntos
 
 def obtener_nombre_nodo() -> str:
     if "--nombre" in sys.argv:
         indice = sys.argv.index("--nombre")
         if indice + 1 < len(sys.argv):
             return sys.argv[indice + 1]
-    return "PC3"
+    return "PC2"
 
 MI_NOMBRE = obtener_nombre_nodo()
 

@@ -4,7 +4,7 @@ import subprocess
 
 # --- CONFIGURACIÓN DEL CLIENTE ---
 IP_COORDINADOR = '192.168.1.10'  # IP estática del Servidor/Coordinador
-PUERTO_COORDINADOR = 12345       # Debe coincidir con el del servidor
+PUERTO_COORDINADOR = 7001      # Debe coincidir con el del servidor
 
 def iniciar_cliente(host_servidor, puerto):
     print("="*60)
