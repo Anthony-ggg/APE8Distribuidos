@@ -40,6 +40,7 @@ NODOS = [
 ]
 
 TIMEOUT = 0.5   # Reducido para no demorar cuando hay nodos apagados
+UMBRAL_SYNC_MS = 50  # Umbral en ms para considerar sincronizado
 
 offset_acumulado = 0.0
 
@@ -63,9 +64,9 @@ def cambiar_hora_sistema(offset):
     except Exception as e:
         print(f"  [SISTEMA] Error al cambiar la hora: {e}")
 
-def ejecutar_ronda_berkeley_udp():
+def ejecutar_ronda_berkeley_udp(num_ronda):
     print("\n" + "─" * 60)
-    print(f"  INICIANDO RONDA DE SINCRONIZACIÓN (UDP)")
+    print(f"  RONDA #{num_ronda} DE SINCRONIZACIÓN (UDP)")
     print(f"  Tiempo coordinador: {time.strftime('%H:%M:%S')}")
     print("─" * 60)
 
@@ -108,7 +109,7 @@ def ejecutar_ronda_berkeley_udp():
     if not resultados:
         print("\n[ERROR] Ningún nodo respondió. Abortando ronda.")
         sock.close()
-        return
+        return False
 
     # ── PASO 2: Calcular el promedio de tiempos ──────────────────────
     print(f"\n[PASO 2] Calculando promedio de tiempos...")
@@ -136,6 +137,8 @@ def ejecutar_ronda_berkeley_udp():
     if offset_coordinador != 0:
         cambiar_hora_sistema(offset_coordinador)
 
+    todos_offsets = [abs(offset_coordinador)]
+
     for addr, t_nodo in resultados.items():
         offset = t_promedio - t_nodo   # positivo → adelantar; negativo → atrasar
 
@@ -143,13 +146,22 @@ def ejecutar_ronda_berkeley_udp():
         mensaje_offset = f"{offset:+.6f}"
         try:
             sock.sendto(mensaje_offset.encode('utf-8'), addr)
+            todos_offsets.append(abs(offset))
             print(f"  → Nodo {addr[0]}:{addr[1]} | offset = {offset*1000:+.3f} ms | "
                   f"{'adelantar' if offset > 0 else 'atrasar'}")
         except Exception as e:
             print(f"  [ERROR]      Error al enviar offset a {addr}: {e}")
 
     print(f"\n[OK] Ronda completada. {len(resultados)}/{len(NODOS)} nodos sincronizados.")
+
+    # Verificar si todos los offsets están bajo el umbral
+    max_offset_ms = max(todos_offsets) * 1000
+    print(f"  Mayor offset: {max_offset_ms:.1f} ms (umbral: {UMBRAL_SYNC_MS} ms)")
     sock.close()
+
+    if max_offset_ms < UMBRAL_SYNC_MS:
+        return True  # ¡Sincronizado!
+    return False
 
 def main():
     print("=" * 60)
@@ -160,12 +172,24 @@ def main():
     for ip, p in NODOS:
         print(f"    • {ip}:{p}")
     print("=" * 60)
+    print(f"  Umbral de sincronización: {UMBRAL_SYNC_MS} ms")
     print("\n[INFO] Ejecutando rondas de sincronización cada 3 segundos.")
-    print("[INFO] Presiona Ctrl+C para detener.\n")
+    print("[INFO] Se detendrá automáticamente al sincronizar.")
+    print("[INFO] Presiona Ctrl+C para detener manualmente.\n")
 
+    ronda = 0
     try:
         while True:
-            ejecutar_ronda_berkeley_udp()
+            ronda += 1
+            sincronizado = ejecutar_ronda_berkeley_udp(ronda)
+            if sincronizado:
+                print("\n" + "=" * 60)
+                print("  ✅ TIEMPO SINCRONIZADO")
+                print(f"  Todos los offsets están por debajo de {UMBRAL_SYNC_MS} ms")
+                print(f"  Hora final: {time.strftime('%H:%M:%S')}")
+                print(f"  Rondas necesarias: {ronda}")
+                print("=" * 60)
+                break
             print("\n[ESPERA] Próxima ronda en 3 segundos...")
             time.sleep(3)
 
