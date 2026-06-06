@@ -1,164 +1,194 @@
-import random
-import socket
-import sys
-import threading
-import time
-import json
+#!/usr/bin/env python3
+"""
+=============================================================
+RELOJES DE VECTORES (Vector Clocks) - P2P TCP (5 POSICIONES)
+=============================================================
+Uso: python3 vector_clock_tcp.py --nombre PC1
+"""
 
-# ============================================================================== 
-# CONFIGURACION DE RED LAN (Fase 1 de la Guía)
-# ==============================================================================
+import socket
+import threading
+import json
+import sys
+
+# ── Tabla de red ──────────────────────────────────────────────────────────────
 NODOS = {
-    "PC1": "192.168.1.10",
-    "PC2": "192.168.1.11",
-    "PC3": "192.168.1.12",
-    "PC4": "192.168.1.13",
-    "PC5": "192.168.1.14"
+    "PC1": ("192.168.1.10", 9001),
+    "PC2": ("192.168.1.11", 9002),
+    "PC3": ("192.168.1.12", 9003),
+    # "PC4": ("192.168.1.13", 9004),
+    # "PC5": ("192.168.1.14", 9005),
 }
 
-# Mapeo estático de nombres a índices del vector [0, 1, 2, 3, 4]
 INDICE_NODO = {"PC1": 0, "PC2": 1, "PC3": 2, "PC4": 3, "PC5": 4}
-PUERTO = 7020
 
-def obtener_nombre_nodo() -> str:
-    if "--nombre" in sys.argv:
-        indice = sys.argv.index("--nombre")
-        if indice + 1 < len(sys.argv):
-            return sys.argv[indice + 1]
-    return "PC1"
+# ── Identidad ─────────────────────────────────────────────────────────────────
+if "--nombre" not in sys.argv:
+    print("[ERROR] Debes indicar tu nodo con: python3 vector_clock_tcp.py --nombre PC1")
+    print("        Valores válidos:", list(NODOS.keys()))
+    sys.exit(1)
 
-MI_NOMBRE = obtener_nombre_nodo()
+MI_NOMBRE = sys.argv[sys.argv.index("--nombre") + 1].upper()
+
 if MI_NOMBRE not in NODOS:
-    raise ValueError(f"Nodo inválido: {MI_NOMBRE}. Usa uno de: {', '.join(NODOS)}")
+    print(f"[ERROR] Nodo inválido: '{MI_NOMBRE}'. Válidos: {list(NODOS.keys())}")
+    sys.exit(1)
 
-MI_IP = NODOS[MI_NOMBRE]
-MI_INDICE = INDICE_NODO[MI_NOMBRE]
+MI_IP, MI_PUERTO = NODOS[MI_NOMBRE]
+MI_INDICE        = INDICE_NODO[MI_NOMBRE]
 
-MENSAJES = [
-    "Actualizando estado del cluster",
-    "Transaccion causal iniciada",
-    "Escritura en base de datos local",
-    "Evento concurrente generado",
-    "Sincronizando hilos del vector",
-]
-
-INTERVALO_ENVIO_MIN = 3
-INTERVALO_ENVIO_MAX = 6
-
-# Inicialización del Vector de Tiempo de 5 posiciones [0, 0, 0, 0, 0]
-vector_tiempo = [0, 0, 0, 0, 0]
+reloj_vector = [0, 0, 0, 0, 0]
 lock = threading.Lock()
-detener = threading.Event()
 
-def obtener_nombre_por_ip(ip: str) -> str:
-    for nombre, direccion in NODOS.items():
+# ── Utilidades ────────────────────────────────────────────────────────────────
+def nombre_por_ip(ip: str) -> str:
+    for nombre, (direccion, _) in NODOS.items():
         if direccion == ip:
             return nombre
     return ip
 
-def servidor_udp():
-    global vector_tiempo
-    
-    servidor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    servidor.bind(("0.0.0.0", PUERTO))  # Escucha en todas las interfaces para evitar Errno 99
-    servidor.settimeout(1.0)
+def log_evento(tipo, descripcion, v_antes, v_despues):
+    print(f"\n  {'─'*60}")
+    print(f"  EVENTO: {tipo} en {MI_NOMBRE}")
+    print(f"  Descripción: {descripcion}")
+    print(f"  Vector ANTES:   {v_antes}")
+    print(f"  Vector DESPUÉS: {v_despues}")
+    print(f"  {'─'*60}", flush=True)
+    print(f"{MI_NOMBRE} > ", end="", flush=True)
 
-    print(f"[*] Servidor de Vectores activo en puerto {PUERTO}...")
-    
-    while not detener.is_set():
+# ── Servidor TCP (hilo en segundo plano) ──────────────────────────────────────
+def manejar_cliente_tcp(conn, addr):
+    try:
+        fragmentos = []
+        while True:
+            parte = conn.recv(4096)
+            if not parte:
+                break
+            fragmentos.append(parte)
+        data = b"".join(fragmentos).decode("utf-8")
+        if not data:
+            return
+
+        paquete = json.loads(data)
+        origen  = nombre_por_ip(addr[0])
+
+        with lock:
+            v_antes = list(reloj_vector)
+            vr = list(paquete["vector"]) + [0] * (5 - len(paquete["vector"]))
+            for i in range(5):
+                reloj_vector[i] = max(reloj_vector[i], vr[i])
+            reloj_vector[MI_INDICE] += 1
+            v_despues = list(reloj_vector)
+
+        log_evento(
+            "RECEPCIÓN",
+            f"Desde {origen} via TCP: '{paquete['mensaje']}'",
+            v_antes,
+            v_despues,
+        )
+    except Exception as e:
+        print(f"[WARN] Error procesando mensaje entrante: {e}")
+    finally:
+        conn.close()
+
+def servidor_tcp():
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("0.0.0.0", MI_PUERTO))
+    srv.listen(10)
+    print(f"  [TCP] Servidor escuchando en 0.0.0.0:{MI_PUERTO}\n")
+    while True:
         try:
-            data, direccion_remota = servidor.recvfrom(2048)
-            linea = data.decode("utf-8").strip()
+            conn, addr = srv.accept()
+            threading.Thread(
+                target=manejar_cliente_tcp, args=(conn, addr), daemon=True
+            ).start()
+        except Exception as e:
+            print(f"[WARN] Error en accept: {e}")
+
+# ── Envío TCP ─────────────────────────────────────────────────────────────────
+def enviar_tcp(destino: str, mensaje: str):
+    if destino == MI_NOMBRE:
+        print("[ERROR] No puedes enviarte un mensaje a ti mismo.")
+        return
+
+    with lock:
+        reloj_vector[MI_INDICE] += 1
+        v_envio = list(reloj_vector)
+        v_antes = list(reloj_vector)
+        v_antes[MI_INDICE] -= 1
+
+    paquete = {"origen": MI_NOMBRE, "vector": v_envio, "mensaje": mensaje}
+    try:
+        cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cliente.settimeout(5)
+        cliente.connect(NODOS[destino])
+        cliente.sendall(json.dumps(paquete).encode("utf-8"))
+        cliente.shutdown(socket.SHUT_WR)
+        cliente.close()
+        log_evento("ENVÍO", f"Mensaje enviado a {destino} (TCP)", v_antes, v_envio)
+    except socket.timeout:
+        print(f"[ERROR] Tiempo de espera agotado al conectar a {destino}.")
+    except ConnectionRefusedError:
+        print(f"[ERROR] {destino} rechazó la conexión. ¿Está corriendo el script en esa PC?")
+    except Exception as e:
+        print(f"[ERROR] No se pudo conectar a {destino}: {e}")
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+def main():
+    print("=" * 60)
+    print(f"  RELOJES DE VECTORES TCP — NODO {MI_NOMBRE}")
+    print("=" * 60)
+    print(f"  IP: {MI_IP}  |  Puerto: {MI_PUERTO}  |  Índice: {MI_INDICE}")
+    print(f"  Vector inicial : {reloj_vector}")
+    print(f"  Nodos activos  : {list(NODOS.keys())}")
+    print("=" * 60)
+
+    threading.Thread(target=servidor_tcp, daemon=True).start()
+
+    print("\n[COMANDOS]: local | enviar <PC> <mensaje> | salir\n")
+
+    try:
+        while True:
+            try:
+                linea = input(f"{MI_NOMBRE} > ").strip()
+            except EOFError:
+                break
+
             if not linea:
                 continue
 
-            # El mensaje viaja como JSON: {"vector": [...], "texto": "...", "origen": "..."}
-            paquete = json.loads(linea)
-            vector_recibido = paquete["vector"]
-            texto = paquete["texto"]
-            origen = obtener_nombre_por_ip(direccion_remota[0])
+            cmd     = linea.split(" ", 2)
+            comando = cmd[0].lower()
 
-            with lock:
-                vector_antes = list(vector_tiempo)
-                
-                # REGLA DE RECEPCIÓN: W[i] = max(W[i], V[i])
-                for i in range(5):
-                    vector_tiempo[i] = max(vector_tiempo[i], vector_recibido[i])
-                
-                # Incrementa su propia posición después de combinar
-                vector_tiempo[MI_INDICE] += 1
-                vector_despues = list(vector_tiempo)
+            if comando == "salir":
+                break
 
-            print("\n" + "=" * 70)
-            print(f"RECEPCION de {origen}")
-            print(f"Texto: {texto}")
-            print(f"Vector recibido: {vector_recibido}")
-            print(f"Mi vector antes:  {vector_antes}")
-            print(f"Mi vector despues: {vector_despues}")
-            print("=" * 70 + "\n")
+            elif comando == "local":
+                with lock:
+                    v_antes = list(reloj_vector)
+                    reloj_vector[MI_INDICE] += 1
+                    v_despues = list(reloj_vector)
+                log_evento("LOCAL", "Evento interno", v_antes, v_despues)
 
-        except socket.timeout:
-            continue
-        except Exception as error:
-            print(f"[-] Error en recepcion: {error}")
-            continue
+            elif comando == "enviar":
+                if len(cmd) < 3:
+                    print("[ERROR] Uso: enviar <PC_DESTINO> <mensaje>")
+                    continue
+                destino = cmd[1].upper()
+                if destino not in NODOS:
+                    print(f"[ERROR] '{destino}' no existe. Nodos: {list(NODOS.keys())}")
+                    continue
+                enviar_tcp(destino, cmd[2])
 
-    servidor.close()
+            else:
+                print(f"[ERROR] Comando desconocido: '{cmd[0]}'")
+                print("        Válidos: local | enviar <PC> <mensaje> | salir")
 
-def enviar_mensaje_vector(destino: str, texto: str):
-    global vector_tiempo
-    ip_destino = NODOS[destino]
-
-    with lock:
-        # REGLA DE ENVÍO: Incrementar mi propia posición antes de salir
-        vector_tiempo[MI_INDICE] += 1
-        vector_envio = list(vector_tiempo)
-
-    # Construimos el payload estructurado
-    paquete = {
-        "vector": vector_envio,
-        "texto": texto
-    }
-    payload = json.dumps(paquete)
-
-    try:
-        cliente = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        cliente.sendto(payload.encode("utf-8"), (ip_destino, PUERTO))
-        print(f"[{vector_envio}] ENVIO a {destino} -> {texto}")
-    except OSError as error:
-        print(f"[-] No se pudo enviar a {destino}: {error}")
-
-def bucle_envio_automatico():
-    destinos = [nombre for nombre in NODOS if nombre != MI_NOMBRE]
-    print("[*] Envío automático activado.\n")
-
-    while not detener.is_set():
-        espera = random.uniform(INTERVALO_ENVIO_MIN, INTERVALO_ENVIO_MAX)
-        if detener.wait(espera):
-            break
-
-        destino = random.choice(destinos)
-        texto = f"{random.choice(MENSAJES)} #{random.randint(1, 999)}"
-        enviar_mensaje_vector(destino, texto)
-
-def main():
-    print("-" * 72)
-    print("   FASE 5 - VECTORES DE TIEMPO (5 NODOS LAN)")
-    print("-" * 72)
-    print(f"Nodo activo: {MI_NOMBRE} | IP: {MI_IP} | Índice Vector: {MI_INDICE}")
-    print(f"Vector Inicial: {vector_tiempo}")
-    print("-" * 72)
-
-    hilo_servidor = threading.Thread(target=servidor_udp, daemon=True)
-    hilo_servidor.start()
-
-    try:
-        bucle_envio_automatico()
     except KeyboardInterrupt:
-        print("\n[*] Deteniendo nodo...")
-    finally:
-        detener.set()
-        time.sleep(0.5)
+        pass
+
+    print("\n[INFO] Nodo detenido.")
 
 if __name__ == "__main__":
     main()
