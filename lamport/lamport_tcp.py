@@ -20,7 +20,7 @@ def obtener_nombre_nodo() -> str:
         indice = sys.argv.index("--nombre")
         if indice + 1 < len(sys.argv):
             return sys.argv[indice + 1]
-    return "PC2"
+    return "PC3"
 
 
 MI_NOMBRE = obtener_nombre_nodo()
