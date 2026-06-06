@@ -190,8 +190,8 @@ def main():
                 print(f"  Rondas necesarias: {ronda}")
                 print("=" * 60)
                 break
-            print("\n[ESPERA] Próxima ronda en 3 segundos...")
-            time.sleep(3)
+            print("\n[ESPERA] Próxima ronda en 10 segundos...")
+            time.sleep(10)
 
     except KeyboardInterrupt:
         print("\n\n[INFO] Coordinador detenido.")
