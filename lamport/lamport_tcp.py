@@ -1,5 +1,6 @@
 import random
 import socket
+import sys
 import threading
 import time
 
@@ -10,14 +11,23 @@ NODOS = {
     "PC1": "192.168.1.10",
     "PC2": "192.168.1.11",
     "PC3": "192.168.1.12",
-    "PC4": "192.168.1.13",
-    "PC5": "192.168.1.14",
 }
 
 PUERTO = 7000
 
-# Cambia este valor en cada equipo antes de ejecutar.
-MI_NOMBRE = "PC3"
+def obtener_nombre_nodo() -> str:
+    if "--nombre" in sys.argv:
+        indice = sys.argv.index("--nombre")
+        if indice + 1 < len(sys.argv):
+            return sys.argv[indice + 1]
+    return "PC3"
+
+
+MI_NOMBRE = obtener_nombre_nodo()
+
+if MI_NOMBRE not in NODOS:
+    raise ValueError(f"Nodo no valido: {MI_NOMBRE}. Usa uno de: {', '.join(NODOS)}")
+
 MI_IP = NODOS[MI_NOMBRE]
 
 MENSAJES = [
@@ -168,7 +178,7 @@ def bucle_envio_automatico():
         enviar_mensaje(destino, texto)
 
 
-if __name__ == "__main__":
+def main():
     print("-" * 72)
     print("   FASE 4 - RELOJES LOGICOS DE LAMPORT")
     print("-" * 72)
@@ -186,3 +196,7 @@ if __name__ == "__main__":
     finally:
         detener.set()
         time.sleep(0.5)
+
+
+if __name__ == "__main__":
+    main()
